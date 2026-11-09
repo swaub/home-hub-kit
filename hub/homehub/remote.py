@@ -4,6 +4,7 @@ import http.client
 import ipaddress
 import json
 import os
+import re
 import shutil
 import ssl
 import threading
@@ -357,6 +358,10 @@ class RemoteApp:
             return None
         return self.peers.get(peer)
 
+    def known_host(self, header):
+        name = re.sub(r":\d+$", "", (header or "").strip().lower())
+        return name in {self.address.lower(), (self.tls or {}).get("name", "").lower()} - {""}
+
     def app_list(self):
         if not self.apps:
             return []
@@ -470,6 +475,9 @@ class RemoteApp:
                 person = app.person_for(self.client_address[0], self.connection.getsockname()[0])
                 if person is None:
                     self.reply(403, "text/plain; charset=utf-8", b"This page is only available through the household VPN.")
+                elif not app.known_host(self.headers.get("Host")):
+                    self.reply(403, "text/plain; charset=utf-8", b"This page only answers to its own name.")
+                    return None
                 return person
 
             def do_GET(self):
