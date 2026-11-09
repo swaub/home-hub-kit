@@ -1,0 +1,10 @@
+[Unit]
+Description=Check the private app's certificate every day
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+Persistent=true
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target

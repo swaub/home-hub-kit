@@ -1,0 +1,7 @@
+[Unit]
+Description=Push a phone notification that %i failed
+
+[Service]
+Type=oneshot
+WorkingDirectory=REPO_DIR
+ExecStart=REPO_DIR/.venv/bin/homehub notify --title "Hub job failed" --priority 4 "%i failed on the hub. Check it with: journalctl --user -u %i"

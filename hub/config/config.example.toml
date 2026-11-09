@@ -1,0 +1,81 @@
+[paths]
+data_dir = "~/.local/share/homehub"
+state_dir = "~/.local/state/homehub"
+
+[brain]
+model = "claude-haiku-5-5"
+effort = "low"
+max_turns = 20
+context_minutes = 5.0
+
+[features]
+google = true
+kdeconnect = false
+home_assistant = false
+adb = false
+network_scans = true
+ps5 = false
+bluetooth = false
+
+[backup]
+dir = "~/.local/share/homehub/backups"
+keep = 14
+copy_to = ""
+
+[notify]
+url = ""
+topic = ""
+
+[home_assistant]
+url = ""
+
+[logging]
+retention_days = 30
+
+[web]
+port = 0
+host = "127.0.0.1"
+
+[remote]
+port = 0
+host = "0.0.0.0"
+address = "10.77.0.1"
+peers = []
+apps = []
+tls_port = 0
+tls_cert = ""
+tls_key = ""
+public_name = ""
+
+[packages]
+scan_minutes = 15
+
+[minecraft]
+root = ""
+cpus = 6
+max_memory_gb = 16
+public_host = ""
+
+[news]
+local_feed = ""
+local_name = ""
+
+[cast]
+device = ""
+
+[directions]
+home = ""
+
+[lights]
+devices = []
+
+[roku]
+devices = []
+
+[proxmox]
+name = "Proxmox server"
+host = ""
+mac = ""
+
+[media]
+folder = ""

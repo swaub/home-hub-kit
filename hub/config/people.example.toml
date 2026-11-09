@@ -1,0 +1,36 @@
+[household]
+
+[people.alex]
+name = "Alex"
+aliases = ["me", "the owner"]
+role = "owner"
+units = "imperial"
+
+[people.sam]
+name = "Sam"
+aliases = ["Samuel"]
+role = "adult"
+
+[people.riley]
+name = "Riley"
+aliases = ["Ry"]
+role = "adult"
+
+[devices.alex_phone]
+owner = "alex"
+kind = "phone"
+name = "Android phone"
+aliases = ["my phone", "Alex's phone"]
+capabilities = ["kdeconnect", "adb"]
+
+[devices.sam_office_pc]
+owner = "sam"
+kind = "pc"
+name = "Sam's office computer"
+aliases = ["the office computer"]
+capabilities = ["wake_on_lan", "pc_agent"]
+
+[accounts.alex_google]
+person = "alex"
+kind = "google"
+via = "claude_ai_connector"

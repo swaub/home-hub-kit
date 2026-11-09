@@ -1,0 +1,7 @@
+[Unit]
+Description=Renew the private app's Let's Encrypt certificate when it is due
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.acme.sh/acme.sh --cron --home %h/.acme.sh

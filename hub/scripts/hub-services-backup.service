@@ -1,0 +1,8 @@
+[Unit]
+Description=Nightly safety copies of the hub's photos, documents, Minecraft worlds and service settings
+After=docker.service
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nice -n 10 /usr/bin/ionice -c 3 /usr/bin/bash REPO_DIR/scripts/backup_services.sh

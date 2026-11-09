@@ -1,0 +1,10 @@
+[Unit]
+Description=Home Hub nightly backup
+After=homehub.service
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=REPO_DIR
+ExecStart=REPO_DIR/.venv/bin/homehub backup --yes
+Environment=PYTHONUNBUFFERED=1

@@ -1,0 +1,8 @@
+[Unit]
+Description=Keep the household DuckDNS names pointing at home and at the hub's VPN address
+After=network-online.target
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash REPO_DIR/scripts/duckdns_update.sh

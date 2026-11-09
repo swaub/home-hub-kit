@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the hub services' safety copies every night at 3:30 a.m.
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
