@@ -122,6 +122,21 @@ def test_the_file_browser_stays_inside_the_servers_folder(tmp_path):
     assert mc.files("test-world", "mods/sneaky.jar")["text"] is None
 
 
+def test_disk_use_is_measured_fresh_for_a_small_server_and_kept_a_minute_only_for_a_big_one(tmp_path):
+    mc = make_server(tmp_path)
+    data = tmp_path / "test-world" / "data"
+    empty = mc.size("test-world")
+    (data / "level.dat").write_bytes(b"x" * 5000)
+    assert mc.size("test-world") == empty + 5000
+    (data / "region").mkdir()
+    for i in range(2001):
+        (data / "region" / f"r.{i}.mca").write_bytes(b"y")
+    big = mc.size("test-world")
+    assert big == empty + 5000 + 2001
+    (data / "late.dat").write_bytes(b"z" * 300)
+    assert mc.size("test-world") == big and mc.size("test-world", fresh=True) == big + 300
+
+
 @pytest.mark.slow
 @pytest.mark.live
 @pytest.mark.skipif(not HAS_DOCKER, reason="needs Docker")

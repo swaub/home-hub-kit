@@ -37,6 +37,7 @@ PLAYERS_LINE = re.compile(r"There are (\d+) of a max of (\d+) players online:?\s
 CATALOG_SECONDS = 3600
 DISK_SECONDS = 300
 SIZE_SECONDS = 60
+SIZE_FILES = 2000
 TEXT_LIMIT = 1_000_000
 UPLOAD_LIMIT = 512 * 1024 * 1024
 LOG_LINES = 300
@@ -311,14 +312,18 @@ class Minecraft:
         hit = self.sizes.get(slug)
         if hit and not fresh and time.monotonic() - hit[0] < SIZE_SECONDS:
             return hit[1]
-        total = 0
+        total, count = 0, 0
         for base, _, files in os.walk(self.root / slug / "data"):
+            count += len(files)
             for name in files:
                 try:
                     total += os.lstat(os.path.join(base, name)).st_size
                 except OSError:
                     pass
-        self.sizes[slug] = (time.monotonic(), total)
+        if count > SIZE_FILES:
+            self.sizes[slug] = (time.monotonic(), total)
+        else:
+            self.sizes.pop(slug, None)
         return total
 
     def summary(self, meta, row):
