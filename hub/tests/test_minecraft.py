@@ -143,7 +143,11 @@ def test_a_real_paper_server_installs_starts_answers_commands_and_moves_to_the_t
         log = mc.log(slug)
         assert "For help" in log and "RCON Client" not in log
         assert info["memory_used"] > 100_000_000
-        assert info["tps"] is not None and 0 < info["mspt"] < 50 and info["tps"] == 20.0
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline and not 0 < (info["mspt"] or 0) < 50:
+            time.sleep(1)
+            info = mc.detail(slug)
+        assert 0 < info["mspt"] < 50 and info["tps"] == 20.0
         properties = mc.files(slug, "server.properties")["text"]
         assert "white-list=true" in properties and "max-players=3" in properties and "online-mode=true" in properties
         added = mc.change_whitelist(slug, "jeb_", True, "alex")

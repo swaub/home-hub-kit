@@ -284,3 +284,21 @@ def test_threads_can_write_concurrently(store):
     for t in threads:
         t.join()
     assert len(store.reminders()) == 300
+
+
+def test_a_new_id_is_never_one_that_is_already_taken(store):
+    taken = 2_000_000
+    numbers = f"WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < {taken - 1}) "
+    with store.conn:
+        store.conn.execute(numbers + "INSERT INTO memory (id, text, visibility, saved) SELECT printf('%06x', i), 'old ' || i, 'household', '2020-01-01T00:00:00' FROM n")
+        store.conn.execute(numbers + "INSERT INTO reminders (id, kind, due, created) SELECT printf('%06x', i), 'timer', '2020-01-01T00:00:00', '2020-01-01T00:00:00' FROM n")
+        store.conn.execute(numbers + "INSERT INTO list_items SELECT printf('%06x', i), 'old', 'item ' || i, '2020-01-01T00:00:00', NULL FROM n")
+    facts = [store.remember(f"New fact {i}.")[0]["id"] for i in range(40)]
+    reminders = [store.add_reminder("timer", datetime(2030, 1, 1), label=str(i))["id"] for i in range(150)]
+    _, added, _ = store.add_list_items("shopping", [f"thing {i}" for i in range(150)])
+    assert len(set(facts)) == 40 and len(set(reminders)) == 150 and len(added) == 150
+    assert all(int(found, 16) >= taken for found in facts + reminders)
+    assert store.conn.execute("SELECT COUNT(*), COUNT(DISTINCT id) FROM list_items WHERE list_name='shopping'").fetchone()[:] == (150, 150)
+    kept = store.remember("Asked for a taken id.", fact_id="00000a")[0]["id"]
+    assert kept != "00000a" and store.add_reminder("timer", datetime(2030, 1, 1), reminder_id="00000b")["id"] != "00000b"
+    assert store.remember("Asked for a free id.", fact_id="zzzzzz")[0]["id"] == "zzzzzz"

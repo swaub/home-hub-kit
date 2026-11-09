@@ -242,6 +242,12 @@ class Storage:
         row = self.conn.execute(sql, params).fetchone()
         return dict(row) if row else None
 
+    def _free_id(self, table, wanted=None):
+        candidate = wanted or new_id()
+        while self.conn.execute(f"SELECT 1 FROM {table} WHERE id=?", (candidate,)).fetchone():
+            candidate = new_id()
+        return candidate
+
     def upsert_person(self, person_id, name, role, default_room=None, units="imperial", announce_phone=False, aliases=()):
         _check(role, ROLES, "role")
         with self.lock, self.conn:
@@ -426,8 +432,7 @@ class Storage:
             existing = self._row(f"SELECT * FROM memory WHERE text=? COLLATE NOCASE AND {scope}", params)
             if existing:
                 return existing, False
-            if not fact_id or self._row("SELECT 1 FROM memory WHERE id=?", (fact_id,)):
-                fact_id = new_id()
+            fact_id = self._free_id("memory", fact_id)
             self.conn.execute("INSERT INTO memory (id, text, owner_id, visibility, saved, conversation_id) VALUES (?, ?, ?, ?, ?, ?)",
                               (fact_id, text, owner_id, visibility, saved or now_iso(), conversation_id))
         return self._row("SELECT * FROM memory WHERE id=?", (fact_id,)), True
@@ -494,8 +499,7 @@ class Storage:
         if isinstance(due, datetime):
             due = due.isoformat(timespec="seconds")
         with self.lock, self.conn:
-            if not reminder_id or self._row("SELECT 1 FROM reminders WHERE id=?", (reminder_id,)):
-                reminder_id = new_id()
+            reminder_id = self._free_id("reminders", reminder_id)
             self.conn.execute("INSERT INTO reminders (id, kind, due, label, repeat, owner_id, room_id, notify_phone, created, at_home) "
                               "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                               (reminder_id, kind, due, label or "", repeat, owner_id, room_id, int(bool(notify_phone)), created or now_iso(),
@@ -667,7 +671,7 @@ class Storage:
                 if self._row("SELECT 1 FROM list_items WHERE list_name=? AND text=? COLLATE NOCASE", (key, text)):
                     already.append(text)
                     continue
-                self.conn.execute("INSERT INTO list_items VALUES (?, ?, ?, ?, ?)", (new_id(), key, text, now_iso(), added_by))
+                self.conn.execute("INSERT INTO list_items VALUES (?, ?, ?, ?, ?)", (self._free_id("list_items"), key, text, now_iso(), added_by))
                 added.append(text)
         return key, added, already
 
