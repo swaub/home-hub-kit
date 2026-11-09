@@ -26,6 +26,9 @@ SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
 MOD_SLUG = re.compile(r"[A-Za-z0-9_.-]{1,64}(:[A-Za-z0-9]{8})?")
 PLAYER = re.compile(r"[A-Za-z0-9_]{3,16}")
 HOSTNAME = re.compile(r"(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}")
+INIT_MEMORY = "512M"
+JVM_XX_OPTS = ("-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled -XX:+DisableExplicitGC "
+               "-XX:G1PeriodicGCInterval=60000 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30")
 DUCKDNS_UPDATE = "https://www.duckdns.org/update?domains={name}&token={token}&ip={ip}"
 PROPERTIES = (("max_players", "max-players"), ("motd", "motd"), ("difficulty", "difficulty"), ("mode", "gamemode"),
               ("whitelist", "white-list"), ("whitelist", "enforce-whitelist"), ("online_mode", "online-mode"))
@@ -40,6 +43,8 @@ LOG_LINES = 300
 QUIET_LOG = re.compile(r"Thread RCON Client .* (started|shutting down)$|ServerMain WARN Advanced terminal features")
 SIZE_UNITS = {"B": 1, "KiB": 1024, "MiB": 1024 ** 2, "GiB": 1024 ** 3, "TiB": 1024 ** 4, "kB": 1000, "MB": 1000 ** 2, "GB": 1000 ** 3}
 LABEL = "homehub.minecraft"
+TRASH_DAYS = 7
+TRASHED = re.compile(r".+-(\d{8}-\d{6})")
 MANIFEST = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 PAPER = "https://fill.papermc.io/v3/projects/paper"
 FABRIC = "https://meta.fabricmc.net/v2/versions/game"
@@ -322,7 +327,30 @@ class Minecraft:
                 "memory_gb": meta["memory_gb"], "disk_gb": meta["disk_gb"], "max_players": meta["max_players"],
                 "whitelist_on": meta.get("whitelist", True), "online_mode": meta.get("online_mode", True)}
 
+    def empty_trash(self, now=None):
+        trash = self.root / ".trash"
+        if not trash.is_dir():
+            return []
+        now = now or datetime.now()
+        removed = []
+        for entry in trash.iterdir():
+            found = TRASHED.fullmatch(entry.name)
+            if not found or not entry.is_dir() or entry.is_symlink():
+                continue
+            if (now - datetime.strptime(found.group(1), "%Y%m%d-%H%M%S")).days >= TRASH_DAYS:
+                shutil.rmtree(entry)
+                removed.append(entry.name)
+        return removed
+
+    def drop_unused_image(self, image):
+        if image and not self.docker("ps", "-a", "--filter", f"ancestor={image}", "--format", "{{.ID}}", timeout=20).strip():
+            try:
+                self.docker("image", "rm", image, timeout=120)
+            except McError:
+                pass
+
     def list(self):
+        self.empty_trash()
         rows = self.containers()
         return [self.summary(m, rows.get(m["slug"])) for m in self.all_meta()]
 
@@ -461,12 +489,13 @@ class Minecraft:
 
     def env(self, meta, first):
         uid, gid = os.getuid(), os.getgid()
-        env = {"EULA": "TRUE", "TYPE": LOADERS[meta["loader"]], "VERSION": meta["version"], "MEMORY": f"{meta['memory_gb']}G",
+        env = {"EULA": "TRUE", "TYPE": LOADERS[meta["loader"]], "VERSION": meta["version"], "INIT_MEMORY": INIT_MEMORY,
+               "MAX_MEMORY": f"{meta['memory_gb']}G", "JVM_XX_OPTS": JVM_XX_OPTS,
                "MAX_PLAYERS": str(meta["max_players"]), "MOTD": meta["motd"], "DIFFICULTY": meta["difficulty"], "MODE": meta["mode"],
                "ENABLE_WHITELIST": "TRUE" if meta.get("whitelist", True) else "FALSE",
                "ENFORCE_WHITELIST": "TRUE" if meta.get("whitelist", True) else "FALSE",
                "ONLINE_MODE": "TRUE" if meta.get("online_mode", True) else "FALSE", "UID": str(uid), "GID": str(gid),
-               "TZ": local_timezone(), "USE_AIKAR_FLAGS": "TRUE", "ENABLE_RCON": "TRUE", "STOP_SERVER_ANNOUNCE_DELAY": "5"}
+               "TZ": local_timezone(), "ENABLE_RCON": "TRUE", "STOP_SERVER_ANNOUNCE_DELAY": "5"}
         if meta.get("seed"):
             env["SEED"] = meta["seed"]
         if meta["mods"]:
@@ -592,7 +621,9 @@ class Minecraft:
                 raise McError("Type the server's exact name to delete it")
             if meta.get("public"):
                 self.set_public(slug, False, by)
+            image = self.containers().get(slug, {}).get("Image", "")
             self.docker("rm", "-f", f"mc-{slug}", timeout=90)
+            self.drop_unused_image(image)
             trash = self.root / ".trash"
             trash.mkdir(exist_ok=True)
             shutil.move(str(self.root / slug), str(trash / f"{slug}-{datetime.now():%Y%m%d-%H%M%S}"))

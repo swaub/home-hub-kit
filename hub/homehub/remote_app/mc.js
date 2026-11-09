@@ -568,7 +568,7 @@ $("mcs-delete").addEventListener("click", async () => {
   if (typed !== mcInfo.name) { toast("Type the server's exact name first."); return; }
   try {
     await postJson(`/api/mc/s/${enc(mcSlug)}/action`, { action: "delete", confirm: typed });
-    toast(`${typed} deleted. Its folder is in the hub's trash.`);
+    toast(`${typed} deleted. Its world is kept for 7 days in case you change your mind, then removed for good.`);
     location.hash = "mc";
   } catch (e) {
     toast(e.message);

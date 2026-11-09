@@ -7,6 +7,7 @@ PAPERLESS="${PAPERLESS_CONTAINER:-paperless-webserver-1}"
 PAPERLESS_EXPORT="${PAPERLESS_EXPORT_DIR:-/srv/paperless/export}"
 IMMICH_LIBRARY="${IMMICH_LIBRARY_DIR:-/srv/immich/library}"
 MINECRAFT_ROOT="${MINECRAFT_ROOT:-/srv/minecraft}"
+DELETED_WORLD_DAYS="${DELETED_WORLD_DAYS:-7}"
 PHOTO_KEEP="${PHOTO_KEEP:-14}"
 WORLD_KEEP="${WORLD_KEEP:-7}"
 stamp="$(date +%Y%m%d-%H%M%S)"
@@ -91,6 +92,10 @@ if [ -d "$MINECRAFT_ROOT" ]; then
     mv "$part" "$DEST/minecraft/$slug-$stamp.tar.gz"
     ls -1t "$DEST/minecraft/$slug-"*.tar.gz 2>/dev/null | tail -n +"$((WORLD_KEEP + 1))" | xargs -r rm -f
     made+=("minecraft $slug $(du -h "$DEST/minecraft/$slug-$stamp.tar.gz" | cut -f1)")
+  done
+  find "$DEST/minecraft" -maxdepth 1 -name '*.tar.gz' -mtime +"$DELETED_WORLD_DAYS" -print0 | while IFS= read -r -d '' archive; do
+    slug="$(basename "$archive" | sed -E 's/-[0-9]{8}-[0-9]{6}\.tar\.gz$//')"
+    [ -d "$MINECRAFT_ROOT/$slug" ] || rm -f "$archive"
   done
 fi
 echo "safety copies $stamp: ${made[*]:-nothing to copy}"

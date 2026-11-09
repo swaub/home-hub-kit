@@ -4,6 +4,7 @@ import shutil
 import socket
 import subprocess
 import time
+from datetime import datetime
 
 import pytest
 
@@ -275,3 +276,28 @@ def test_a_stopped_servers_settings_reach_its_files_without_starting_it(tmp_path
     text = mc.files("pytest-stopped", "server.properties")["text"]
     assert "max-players=7" in text and "motd=Changed while off" in text
     assert "pytest-stopped" not in mc.containers()
+
+
+def test_a_server_starts_small_grows_to_its_limit_and_hands_memory_back_when_quiet(tmp_path):
+    mc = make_server(tmp_path)
+    meta = {**mc.meta("test-world"), "memory_gb": 4}
+    env = mc.env(meta, first=False)
+    assert env["INIT_MEMORY"] == "512M" and env["MAX_MEMORY"] == "4G"
+    assert "MEMORY" not in env and "USE_AIKAR_FLAGS" not in env
+    flags = env["JVM_XX_OPTS"].split()
+    assert "-XX:G1PeriodicGCInterval=60000" in flags and "-XX:MaxHeapFreeRatio=30" in flags
+    assert not any("AlwaysPreTouch" in flag for flag in flags)
+
+
+def test_deleted_worlds_stay_in_the_trash_for_a_week_then_go_for_good(tmp_path):
+    mc = make_server(tmp_path)
+    trash = tmp_path / ".trash"
+    for name in ("old-smp-20261101-090000", "recent-smp-20261108-090000", "notes"):
+        (trash / name / "data").mkdir(parents=True)
+        (trash / name / "data" / "level.dat").write_bytes(b"world")
+    (trash / "stray-20261101-090000.txt").write_text("not a world", encoding="utf-8")
+    removed = mc.empty_trash(now=datetime(2026, 11, 9, 12, 0))
+    assert removed == ["old-smp-20261101-090000"]
+    assert sorted(p.name for p in trash.iterdir()) == ["notes", "recent-smp-20261108-090000", "stray-20261101-090000.txt"]
+    assert (tmp_path / "test-world" / "server.json").is_file()
+    assert mc.empty_trash(now=datetime(2026, 11, 15, 9, 0)) == ["recent-smp-20261108-090000"]
