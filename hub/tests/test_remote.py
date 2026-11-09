@@ -700,3 +700,20 @@ def test_document_uploads_go_through_one_put_on_the_app_address(chat, loop, tmp_
     finally:
         app.stop()
         bare.stop()
+
+
+def test_the_app_answers_only_to_its_own_name_so_another_site_cannot_borrow_it(chat, loop):
+    app = serve(chat, loop)
+    try:
+        assert request(app, "GET", "/api/state")[0] == 200
+        assert request(app, "GET", "/api/state", headers={"Host": f"127.0.0.1:{app.port}"})[0] == 200
+        for name in ("evil.example", f"evil.example:{app.port}", "127.0.0.1.evil.example", "localhost", ""):
+            code, _, body = request(app, "GET", "/api/state", headers={"Host": name})
+            assert code == 403 and b"own name" in body, name
+            assert request(app, "GET", "/", headers={"Host": name})[0] == 403
+            sent = {"Host": name, "Origin": f"http://{name}"}
+            assert request(app, "POST", "/api/chat", {"text": "what time is it"}, headers=sent)[0] == 403
+            assert request(app, "PUT", "/api/mc/x/files?path=a.txt", b"x", headers=sent)[0] == 403
+        assert chat.events == []
+    finally:
+        app.stop()
