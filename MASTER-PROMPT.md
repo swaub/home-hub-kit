@@ -338,6 +338,16 @@ Add only what the house has. Each one gets its section in config and secrets, th
    - dead hub disk (rebuild steps in order).
 5. **Check:** run both backups by hand, look at the files, and restore one Paperless document and one photo from a snapshot into a temp folder.
 
+## Phase 12b: a watchdog, health history and a second copy
+
+Put these on a second machine when there is one (a Proxmox container is ideal), never on the hub they watch:
+- **Uptime Kuma** checks every service each minute and pushes straight to ntfy, so a dead hub still gets reported. Things only the hub can see (the VPN interface, whether last night's backups succeeded, the DuckDNS updater) report in through push monitors from a one-minute hub timer; a missing check-in counts as down. Add a route to the VPN subnet through the hub so it can check the app and the Caddy names. In an unprivileged container, ping monitors need `net.ipv4.ping_group_range` within the mapped range (`0 65534`). Monitors added over its socket API need `conditions` as a JSON array, and calls sent in the first seconds after connecting are ignored.
+- **Beszel** keeps CPU, memory, temperature and disk history and reads SMART, with small agents on each machine (root, for SMART) and alerts to the same ntfy topic.
+- **A second copy of every backup**: a nightly rsync from the hub to the second machine, with its own key limited there by `command="/usr/bin/rrsync <folder>",restrict`. Back up the second machine's apps (databases with `sqlite3 .backup` while they run) into the hub's nightly backup the same way.
+- **Weekly update alerts** that list what's waiting and change nothing, and a **new-device alert** that pushes the first time an unknown device joins the network (learn everything quietly on the first look).
+
+Caddy installed from apt with its admin interface off can't `reload`; restart it after a change.
+
 ## Phase 13: hand over and keep going
 
 - Walk the owner through every page of the app on their phone.
@@ -404,4 +414,5 @@ Each item works from the owner's phone on mobile data with the VPN on:
 - [ ] every TV, player and console they have is controllable from its page;
 - [ ] both nightly backups ran and were checked, and a failure push arrives when a job fails;
 - [ ] the spare VPN code is saved, and the README's "This house" section and recovery guide match reality;
+- [ ] a watchdog on another machine pushes when the hub or any service goes down, and the backups exist on two machines;
 - [ ] the test suite passes on the hub.
